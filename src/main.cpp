@@ -21,21 +21,28 @@ std::ostream& operator<<(std::ostream& os, const std::vector<Size>& data) {
 	return os;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	if (argc < 3) {
+		std::cerr << "Usage: <-e|-d> text" << std::endl;
+		return 1;
+	}
 	OPENSSL_init();
 	OpenSSL_add_all_ciphers();
-	AES aes("Test passwd", "12345678");
+	AES aes("Test passwd Test", "1234567812345678");
 	LimitedAES<Size> lim(aes, 95);
-	const char data[] = "This is an experimental text";
 	std::vector<Size> dataVec;
-	for (size_t i = 0; i < sizeof(data) - 1; ++i) {
-		dataVec.push_back(data[i] - ' ');
+	for (size_t i = 0; i < strlen(argv[2]); ++i) {
+		dataVec.push_back(argv[2][i] - ' ');
 	}
 	std::cout << "Source: " << dataVec << " / " << dataVec.size() << std::endl;
-	auto enc = lim.encrypt(dataVec);
-	std::cout << "Encrypted: " << enc << std::endl;
-	auto dec = lim.decrypt(enc);
-	std::cout << "Decrypted: " << dec << std::endl;
+	if (!strcmp(argv[1], "-e")) {
+		auto enc = lim.encrypt(dataVec);
+		std::cout << "Encrypted: " << enc << std::endl;
+	}
+	if (!strcmp(argv[1], "-d")) {
+		auto dec = lim.decrypt(dataVec);
+		std::cout << "Decrypted: " << dec << std::endl;
+	}
 	EVP_cleanup();
 	return 0;
 }

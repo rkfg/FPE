@@ -11,7 +11,7 @@
 using namespace std;
 
 AES::AES(const string& key, const string& iv): key_(key), iv_(iv) {
-	cipher_ = EVP_get_cipherbyname("aes128");
+	cipher_ = EVP_get_cipherbyname("aes-128-cbc");
 }
 
 vector<unsigned char> AES::encrypt(const std::vector<unsigned char>& data) {
