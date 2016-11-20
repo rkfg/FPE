@@ -20,6 +20,7 @@ private:
 	mpz_class radix_;
 	size_t rounds_;
 	mpz_class elemPow_;
+
 	template<typename V>
 	mpz_class num(const std::vector<V>& data, const mpz_class& radix) {
 		mpz_class result(0);
@@ -45,51 +46,55 @@ public:
 			aes_(aes), radix_(radix), rounds_(rounds) {
 		mpz_pow_ui(elemPow_.get_mpz_t(), mpz_class(2).get_mpz_t(), sizeof(Elem) * 8);
 	}
+
 	std::vector<Elem> encrypt(std::vector<Elem>& data) {
 		auto len = data.size();
 		auto half = len / 2;
-		std::vector<Elem> a(data.begin(), data.begin() + half), b(data.begin() + half, data.end());
+		mpz_class a = num(std::vector<Elem>(data.begin(), data.begin() + half), radix_);
+		mpz_class b = num(std::vector<Elem>(data.begin() + half, data.end()), radix_);
 		mpz_class aPow, bPow;
-		size_t aSize = a.size();
-		size_t bSize = b.size();
+		size_t aSize = half;
+		size_t bSize = len - half;
 		mpz_pow_ui(aPow.get_mpz_t(), mpz_class(radix_).get_mpz_t(), aSize);
 		mpz_pow_ui(bPow.get_mpz_t(), mpz_class(radix_).get_mpz_t(), bSize);
 		for (size_t r = 0; r < rounds_; r++) {
-			auto bytes = numBack<unsigned char>(num(b, radix_), elemPow_, bSize);
+			auto bytes = numBack<unsigned char>(b, elemPow_, bSize);
 			auto bEnc = aes_.encrypt(bytes);
-			mpz_class aMod = (num(a, radix_) + num(bEnc, elemPow_)) % aPow;
-			a = numBack<Elem>(aMod, radix_, aSize);
+			a = (a + num(bEnc, elemPow_)) % aPow;
 			std::swap(a, b);
 			std::swap(aPow, bPow);
 			std::swap(aSize, bSize);
 		}
-		std::vector<Elem> result(a.begin(), a.end());
-		result.insert(result.end(), b.begin(), b.end());
+		std::vector<Elem> result = numBack<Elem>(a, radix_, aSize);
+		std::vector<Elem> bVec = numBack<Elem>(b, radix_, bSize);
+		result.insert(result.end(), bVec.begin(), bVec.end());
 		return result;
 	}
+
 	std::vector<Elem> decrypt(std::vector<Elem>& data) {
 		auto len = data.size();
 		auto half = len / 2;
-		std::vector<Elem> a(data.begin(), data.begin() + half), b(data.begin() + half, data.end());
+		mpz_class a = num(std::vector<Elem>(data.begin(), data.begin() + half), radix_);
+		mpz_class b = num(std::vector<Elem>(data.begin() + half, data.end()), radix_);
 		mpz_class aPow, bPow;
-		size_t aSize = a.size();
-		size_t bSize = b.size();
+		size_t aSize = half;
+		size_t bSize = len - half;
 		mpz_pow_ui(aPow.get_mpz_t(), mpz_class(radix_).get_mpz_t(), aSize);
 		mpz_pow_ui(bPow.get_mpz_t(), mpz_class(radix_).get_mpz_t(), bSize);
 		for (size_t r = 0; r < rounds_; r++) {
 			std::swap(a, b);
 			std::swap(aPow, bPow);
 			std::swap(aSize, bSize);
-			auto bytes = numBack<unsigned char>(num(b, radix_), elemPow_, bSize);
+			auto bytes = numBack<unsigned char>(b, elemPow_, bSize);
 			auto bEnc = aes_.encrypt(bytes);
-			mpz_class aMod = (num(a, radix_) - num(bEnc, elemPow_)) % aPow;
-			if (aMod < 0) {
-				aMod = aPow + aMod;
+			a = (a - num(bEnc, elemPow_)) % aPow;
+			if (a < 0) {
+				a += aPow;
 			}
-			a = numBack<Elem>(aMod, radix_, aSize);
 		}
-		std::vector<Elem> result(a.begin(), a.end());
-		result.insert(result.end(), b.begin(), b.end());
+		std::vector<Elem> result = numBack<Elem>(a, radix_, aSize);
+		std::vector<Elem> bVec = numBack<Elem>(b, radix_, bSize);
+		result.insert(result.end(), bVec.begin(), bVec.end());
 		return result;
 	}
 };
