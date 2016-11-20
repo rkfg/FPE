@@ -12,6 +12,7 @@
 #include <iostream>
 #include <gmpxx.h>
 #include <vector>
+#include <cmath>
 
 template<typename Elem>
 class LimitedAES {
@@ -34,11 +35,16 @@ private:
 	std::vector<V> numBack(const mpz_class& data, const mpz_class& radix, size_t len) {
 		std::vector<V> result;
 		mpz_class copy(data);
-		for (size_t i = 0; i < len * sizeof(Elem) / sizeof(V); ++i) {
+		for (size_t i = 0; i < len; ++i) {
 			mpz_class mod = copy % radix;
 			result.push_back(mod.get_ui());
 			copy /= radix;
 		}
+		return result;
+	}
+
+	size_t calcSize(size_t from, const mpz_class& fromRadix, const mpz_class& toRadix) {
+		double result = ceil(from * log2(fromRadix.get_d()) / log2(toRadix.get_d()));
 		return result;
 	}
 public:
@@ -47,7 +53,19 @@ public:
 		mpz_pow_ui(elemPow_.get_mpz_t(), mpz_class(2).get_mpz_t(), sizeof(Elem) * 8);
 	}
 
-	std::vector<Elem> encrypt(std::vector<Elem>& data) {
+	template<typename InElem>
+	std::vector<Elem> encrypt(const std::vector<InElem>& data) {
+		mpz_class radix;
+		mpz_pow_ui(radix.get_mpz_t(), mpz_class(2).get_mpz_t(), sizeof(InElem) * 8);
+		return encrypt(data, radix);
+	}
+
+	template<typename InElem>
+	std::vector<Elem> encrypt(const std::vector<InElem>& data, const mpz_class& inRadix) {
+		return encrypt(numBack<Elem>(num(data, inRadix), radix_, calcSize(data.size(), inRadix, radix_)));
+	}
+
+	std::vector<Elem> encrypt(const std::vector<Elem>& data) {
 		auto len = data.size();
 		auto half = len / 2;
 		mpz_class a = num(std::vector<Elem>(data.begin(), data.begin() + half), radix_);
@@ -71,7 +89,19 @@ public:
 		return result;
 	}
 
-	std::vector<Elem> decrypt(std::vector<Elem>& data) {
+	template<typename OutElem>
+	std::vector<OutElem> decrypt(const std::vector<Elem>& data) {
+		mpz_class radix;
+		mpz_pow_ui(radix.get_mpz_t(), mpz_class(2).get_mpz_t(), sizeof(OutElem) * 8);
+		return decrypt<OutElem>(data, radix);
+	}
+
+	template<typename OutElem>
+	std::vector<OutElem> decrypt(const std::vector<Elem>& data, const mpz_class& outRadix) {
+		return numBack<OutElem>(num(decrypt(data), radix_), outRadix, calcSize(data.size(), radix_, outRadix));
+	}
+
+	std::vector<Elem> decrypt(const std::vector<Elem>& data) {
 		auto len = data.size();
 		auto half = len / 2;
 		mpz_class a = num(std::vector<Elem>(data.begin(), data.begin() + half), radix_);
